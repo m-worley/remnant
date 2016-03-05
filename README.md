@@ -1,5 +1,5 @@
-# Remnant Readme
+## Remnant Readme ##
 
-# Description about the game goes here.
+## Description/Flavor Text ##
 
-# Build information goes here.
+## Building ##
