@@ -1,45 +1,25 @@
-; Hello World
+; Hello Sprite
+; originl version February 17, 2007
 ; John Harrison
-; With lots o' code borrowed from all over the place
-; some tutorial-like comments stolen from "hello world" by GABY
+; An extension of Hello World, based mostly from GALP
 
-; VERSIONS
-; 1.01 02/09/07
-;   fixed typos and clarified a few things in the comments
-; 1.00 02/02/07
-
-; Most GameBoy assemblers (and most other assembly
-; language assemblers) use a semicolon to indicate
-; that everything following it on a particular line
-; is to be ignored and be treated purely as comments
-; rather than code.
-
-; gbhw.inc contains the
-; 'Hardware Defines' for our program. This has
-; address location labels for all of the GameBoy
-; Hardware I/O registers. We can 'insert' this file
-; into the present EXAMPLE1.ASM file by using the
-; assembler INCLUDE command:
+;* 2008-May-01 --- V1.0a
+;*                 replaced reference of hello-sprite.inc with sprite.inc
 
 INCLUDE "gbhw.inc" ; standard hardware definitions from devrs.com
-
-;  Next we want to include a file that contains a font
-; macro. A macro is a portion of code or data that
-; gets 'inserted' into your program. At this point,
-; we are not actually inserting anything but a macro
-; definition into our file. Code or data isn't physically
-; inserted into a program until you invoke a macro which
-; we will do later. For now, we are just making the macro
-; name recognizable by our program.
-
 INCLUDE "ibmpc1.inc" ; ASCII character set from devrs.com
+INCLUDE "sprite.inc" ; specific defs
 
-; We are going to keep interrupts disabled for this program.
-; However, it is good practice to leave the reserved memory locations for interrupts with
-; executable code. It make for a nice template as well to fill in code when we use interrupts
-; in the future
+SPEED		EQU	$0fff
+ASCII_TILES_SIZE EQU 8*256 
+MOVEMENT_SPEED EQU 1
+
+; create variables
+	SpriteAttr	playerSprite 
+	
+; IRQs
 SECTION	"Vblank",HOME[$0040]
-	reti
+	jp	DMACODELOC ; *hs* update sprites every time the Vblank interrupt is called (~60Hz)
 SECTION	"LCDC",HOME[$0048]
 	reti
 SECTION	"Timer_Overflow",HOME[$0050]
@@ -49,207 +29,240 @@ SECTION	"Serial",HOME[$0058]
 SECTION	"p1thru4",HOME[$0060]
 	reti
 
-;  Next we need to include the standard GameBoy ROM header
-; information that goes at location $0100 in the ROM. (The
-; $ before a number indicates that the number is a hex value.)
-;
-;  ROM location $0100 is also the code execution starting point
-; for user written programs. The standard first two commands
-; are usually always a NOP (NO Operation) and then a JP (Jump)
-; command. This JP command should 'jump' to the start of user
-; code. It jumps over the ROM header information as well that
-; is located at $104.
-;
-;  First, we indicate that the following code & data should
-; start at address $100 by using the following SECTION assembler
-; command:
-
+; ****************************************************************************************
+; boot loader jumps to here.
+; ****************************************************************************************
 SECTION	"start",HOME[$0100]
 nop
-jp	begin
-
-;  To include the standard ROM header information we
-; can just use the macro ROM_HEADER. We defined this macro
-; earlier when we INCLUDEd "gbhw.inc".
-;
-;  The ROM_NOMBC just suggests to the complier that we are
-; not using a Memory Bank Controller because we don't need one
-; since our ROM won't be larger than 32K bytes.
-;
-;  Next we indicate the cart ROM size and then the cart RAM size.
-; We don't need any cart RAM for this program so we set this to 0K.
+jp	Begin
 
 ; ****************************************************************************************
 ; ROM HEADER and ASCII character set
 ; ****************************************************************************************
 ; ROM header
 	ROM_HEADER	ROM_NOMBC, ROM_SIZE_32KBYTE, RAM_SIZE_0KBYTE
-
-; Next we need to include some code for doing
-; RAM copy, RAM fill, etc.
 INCLUDE "memory.asm"
-
-;  Next, let's actually include font tile data into the ROM
-; that we are building. We do this by invoking the chr_IBMPC1
-; macro that was defined earlier when we INCLUDEd "ibmpc1.inc".
-;
-;  The 1 & 8 parameters define that we want to include the
-; whole IBM-PC font set and not just parts of it.
-;
-;  Right before invoking this macro we define the label
-; TileData. Whenever a label is defined with a colon
-; it is given the value of the current ROM location.
-;  As a result, TileData now has a memory location value that
-; is the same as the first byte of the font data that we are
-; including. We shall use the label TileData as a "handle" or
-; "reference" for locating our font data.
-
-TileData:
+ASCIIData:
 	chr_IBMPC1	1,8 ; LOAD ENTIRE CHARACTER SET
 
-;  The NOP and then JP located at $100 in ROM are executed
-; which causes the the following code to be executed next.
+INCLUDE "tilemap.inc"
 
 ; ****************************************************************************************
 ; Main code Initialization:
 ; set the stack pointer, enable interrupts, set the palette, set the screen relative to the window
 ; copy the ASCII character table, clear the screen
 ; ****************************************************************************************
-begin:
-; First, it's a good idea to Disable Interrupts
-; using the following command. We won't be using
-; interrupts in this example so we can leave them off.
-
+Begin:
+	nop
 	di
+	ld	sp, $ffff		; set the stack pointer to highest mem location + 1
 
-;  Next, we should initialize our stack pointer. The
-; stack pointer holds return addresses (among other things)
-; when we use the CALL command so the stack is important to us.
-;
-;  The CALL command is similar to executing
-; a procedure in the C & PASCAL languages.
-;
-; We shall set the stack to the top of high ram + 1.
-;
-	ld	sp, $ffff		; set the stack pointer to highest mem location we can use + 1
+; NEXT FOUR LINES FOR SETTING UP SPRITES *hs*
+	call	InitDMA			; move routine to HRAM
+	ld	a, IEF_VBLANK
+	ld	[rIE],a			; ENABLE ONLY VBLANK INTERRUPT
+	ei				; LET THE INTS FLY
 
-;  Here we are going to setup the background tile
-; palette so that the tiles appear in the proper
-; shades of grey.
-;
-;  To do this, we need to write the value %11100100 to the
-; memory location $ff47. In the 'gbhw.inc' file we
-; INCLUDEd there is a definition that rBGP=$ff47 so
-; we can use the rGBP label to do this
-;
-;  The first instruction loads the value %11100100 into the
-; 8-bit register A and the second instruction writes
-; the value of register A to memory location $ff47.
-
-init:
-	ld	a, %11100100 	; Window palette colors, from darkest to lightest
-	ld	[rBGP], a		; CLEAR THE SCREEN
-
-;  Here we are setting the X/Y scroll registers
-; for the tile background to 0 so that we can see
-; the upper left corner of the tile background.
-;
-;  Think of the tile background RAM (which we usually call
-; the tile map RAM) as a large canvas. We draw on this
-; 'canvas' using 'paints' which consist of tiles and
-; sprites (we will cover sprites in another example.)
-;
-;  We set the scroll registers to 0 so that we can
-; view the upper left corner of the 'canvas'.
+Initialize:
+	ld	a, %11100100 		; Window palette colors, from darkest to lightest
+	ld	[rBGP], a		; set background and window pallette
+	ldh	[rOBP0],a		; set sprite pallette 0 (choose palette 0 or 1 when describing the sprite)
+	ldh	[rOBP1],a		; set sprite pallette 1
 
 	ld	a,0			; SET SCREEN TO TO UPPER RIGHT HAND CORNER
 	ld	[rSCX], a
-	ld	[rSCY], a
-
-;  Next we shall turn the Liquid Crystal Display (LCD)
-; off so that we can copy data to video RAM. We can
-; copy data to video RAM while the LCD is on but it
-; is a little more difficult to do and takes a little
-; bit longer. Video RAM is not always available for
-; reading or writing when the LCD is on so it is
-; easier to write to video RAM with the screen off.
-;
-;  To turn off the LCD we do a CALL to the StopLCD
-; subroutine at the bottom of this file. The reason
-; we use a subroutine is because it takes more than
-; just writing to a memory location to turn the
-; LCD display off. The LCD display should be in
-; Vertical Blank (or VBlank) before we turn the display
-; off. Weird effects can occur if you don't wait until
-; VBlank to do this and code written for the Super
-; GameBoy won't work sometimes you try to turn off
-; the LCD outside of VBlank.
-
-	call	StopLCD		; YOU CAN NOT LOAD $8000 WITH LCD ON
-	
-;  In order to display any text on our 'canvas'
-; we must have tiles which resemble letters that
-; we can use for 'painting'. In order to setup
-; tile memory we will need to copy our font data
-; to tile memory using the routine 'mem_CopyMono'
-; found in the 'memory.asm' library we INCLUDEd
-; earlier.
-;
-;  For the purposes of the 'mem_CopyMono' routine,
-; the 16-bit HL register is used as a source memory
-; location, DE is used as a destination memory location,
-; and BC is used as a data length indicator.
-
-	ld	hl, TileData
-	ld	de, _VRAM		; $8000
-	ld	bc, 8*256 		; the ASCII character set: 256 characters, each with 8 bytes of display data
-	call	mem_CopyMono	; load tile data
-	
-; We turn the LCD on. Parameters are explained in the I/O registers section of The GameBoy reference under I/O register LCDC
-	ld	a, LCDCF_ON|LCDCF_BG8000|LCDCF_BG9800|LCDCF_BGON|LCDCF_OBJ16|LCDCF_OBJOFF 
+	ld	[rSCY], a		
+	ld  [isCameraMovingX], a
+	ld  [isCameraMovingY], a
+	call	StopLCD			; YOU CAN NOT LOAD $8000 WITH LCD ON
+	; Load the background tile data from ROM and copy to VRAM.
+	ld hl, background_tiles_tile_data
+	ld de, _VRAM
+	ld bc, background_tiles_tile_data_size
+	call mem_Copy
+ClearSpriteTable:
+; *hs* erase sprite table
+	ld	a,0
+	ld	hl,OAMDATALOC
+	ld	bc,OAMDATALENGTH
+	call	mem_Set
+InitBackgroundMap:
+	ld	a, LCDCF_ON|LCDCF_BG8000|LCDCF_BG9800|LCDCF_BGON|LCDCF_OBJ8|LCDCF_OBJON ; *hs* see gbspec.txt lines 1525-1565 and gbhw.inc lines 70-86
 	ld	[rLCDC], a	
-	
-; Next, we clear our 'canvas' to all white by
-; 'setting' the canvas to ascii character $20
-; which is a white space.
-
 	ld	a, 32		; ASCII FOR BLANK SPACE
 	ld	hl, _SCRN0
 	ld	bc, SCRN_VX_B * SCRN_VY_B
 	call	mem_SetVRAM
+	; Set variables.
+	ld a, background_tiles_tile_map_width
+	ld [tilemapWidth], a
+	ld a, background_tiles_tile_map_height
+	ld [tilemapHeight], a
+	ld bc, background_tiles_tile_data
+	ld hl, pTileData
+	ld a, b
+	ld [hl+], a
+	ld a, c
+	ld [hl], a
+	; Initialize tile map in VRAM
+	call CopyTileMapBlock
+SpriteSetup:
+	PutSpriteYAddr	playerSprite, 0	; set player location to 0,0
+	PutSpriteXAddr	playerSprite, 0
+ 	ld	a,1		;	; ibmpc1.inc ASCII character 1 is happy face :-)
+ 	ld 	[playerSpriteTileNum],a      ;sprite 1's tile address
+ 	ld	a,%00000000         	;set flags (see gbhw.inc lines 33-42)
+ 	ld	[playerSpriteFlags],a        ;save flags
 
-	
 ; ****************************************************************************************
-; Main code:
-; Print a character string in the middle of the screen
+; Main Program Loop
 ; ****************************************************************************************
-; Now we need to paint the message
-; " Hello World !" onto our 'canvas'. We do this with
-; one final memory copy routine call.
-
-	ld	hl,Title
-	ld	de, _SCRN0+3+(SCRN_VY_B*7) ; 
-	ld	bc, TitleEnd-Title
-	call	mem_CopyVRAM
-	
-; ****************************************************************************************
-; Prologue
-; Wait patiently 'til somebody kills you
-; ****************************************************************************************
-; Since we have accomplished our goal, we now have nothing
-; else to do. As a result, we just Jump to a label that
-; causes an infinite loop condition to occur.
-wait:
+MainLoop:
 	halt
-	nop
-	jr	wait
-	
+	nop				; always put NOP after HALT (gbspec.txt lines 514-578)
+	ld	bc,SPEED
+	call SimpleDelay
+	call HandleInput
+	jr	MainLoop
+
 ; ****************************************************************************************
-; hard-coded data
+; Subroutines
 ; ****************************************************************************************
-Title:
-	DB	"Remnant"
-TitleEnd:
+HandleInput:
+	call	GetKeys
+	push	af
+	and	PADF_RIGHT
+	call	nz,MoveRight
+	pop	af
+	push	af
+	and	PADF_LEFT
+	call	nz,MoveLeft
+	pop	af
+	push	af
+	and	PADF_UP
+	call	nz,MoveUp
+	pop	af
+	push	af
+	and	PADF_DOWN
+	call	nz,MoveDown
+	pop	af
+	push	af
+	and	PADF_START
+	call	nz,Yflip
+	pop	af
+	ret
+
+MoveRight:
+	GetSpriteXAddr	playerSprite
+	ld b, a
+	cp		SCRN_X-8	; already on RHS of screen?
+	ret		z
+	cp 		SCRN_MIDPOINT_X-8 ; If the player reaches the middle of the screen, scroll the camera right.
+	call z, ScrollCameraRight
+	ld a, [isCameraMovingX] ; If the camera is moving, then we don't need to update the player position on the screen.
+	cp $01
+	ret z
+	ld a, b
+	add 	a, MOVEMENT_SPEED
+	PutSpriteXAddr	playerSprite,a
+	ret
+MoveLeft:	
+	GetSpriteXAddr	playerSprite
+	ld b, a
+	cp		0	; already on LHS of screen?
+	ret		z
+	cp 		SCRN_MIDPOINT_X-8 ; If the player reaches the middle of the screen, scroll the camera right.
+	call z, ScrollCameraLeft
+	ld a, [isCameraMovingX] ; If the camera is moving, then we don't need to update the player position on the screen.
+	cp $01
+	ret z
+	ld a, b
+	sub 	a, MOVEMENT_SPEED
+	PutSpriteXAddr	playerSprite,a
+	ret
+MoveUp:	
+	GetSpriteYAddr	playerSprite
+	ld b, a
+	cp		0	; already on top of screen?
+	ret		z
+	cp 		SCRN_MIDPOINT_Y-8 ; If the player reaches the middle of the screen, scroll the camera right.
+	call z, ScrollCameraUp
+	ld a, [isCameraMovingY] ; If the camera is moving, then we don't need to update the player position on the screen.
+	cp $01
+	ret z
+	ld a, b
+	sub 	a, MOVEMENT_SPEED
+	PutSpriteYAddr	playerSprite,a
+	ret
+MoveDown:	
+	GetSpriteYAddr	playerSprite
+	ld b, a
+	cp		SCRN_Y - 8	; already at bottom of screen?
+	ret		z
+	cp 		SCRN_MIDPOINT_Y-8 ; If the player reaches the middle of the screen, scroll the camera right.
+	call z, ScrollCameraDown
+	ld a, [isCameraMovingY] ; If the camera is moving, then we don't need to update the player position on the screen.
+	cp $01
+	ret z
+	ld a, b
+	add 	a, MOVEMENT_SPEED
+	PutSpriteYAddr	playerSprite,a
+	ret
+Yflip:	
+	ld	a,[playerSpriteFlags]
+	xor	OAMF_YFLIP		; toggle flip of sprite vertically
+	ld	[playerSpriteFlags],a
+	ret
+SimpleDelay:
+	dec	bc
+	ld	a,b
+	or	c
+	jr	nz, SimpleDelay
+	ret
+
+; GetKeys: adapted from APOCNOW.ASM and gbspec.txt
+GetKeys:                 ;gets keypress
+	ld 	a,P1F_5			; set bit 5
+	ld 	[rP1],a			; select P14 by setting it low. See gbspec.txt lines 1019-1095
+	ld 	a,[rP1]
+ 	ld 	a,[rP1]			; wait a few cycles
+	cpl				; complement A. "You are a very very nice Accumulator..."
+	and 	$0f			; look at only the first 4 bits
+	swap 	a			; move bits 3-0 into 7-4
+	ld 	b,a			; and store in b
+
+ 	ld	a,P1F_4			; select P15
+ 	ld 	[rP1],a
+	ld	a,[rP1]
+	ld	a,[rP1]
+	ld	a,[rP1]
+	ld	a,[rP1]
+	ld	a,[rP1]
+	ld	a,[rP1]			; wait for the bouncing to stop
+	cpl				; as before, complement...
+ 	and $0f				; and look only for the last 4 bits
+ 	or b				; combine with the previous result
+ 	ret				; do we need to reset joypad? (gbspec line 1082)
+
+; *hs* START
+InitDMA:
+	ld	de, DMACODELOC
+	ld	hl, DMACode
+	ld	bc, DMAEnd-DMACode
+	call	mem_CopyVRAM			; copy when VRAM is available
+	ret
+DMACode:
+	push	af
+	ld	a, OAMDATALOCBANK		; bank where OAM DATA is stored
+	ldh	[rDMA], a			; Start DMA
+	ld	a, $28				; 160ns
+DMAWait:
+	dec	a
+	jr	nz, DMAWait
+	pop	af
+	reti
+DMAEnd:
+; *hs* END
 
 ; ****************************************************************************************
 ; StopLCD:
@@ -275,3 +288,23 @@ StopLCD:
         ld      [rLCDC],a
 
         ret
+
+;-------------------------------------------------------------------------
+; Internal RAM: Dynamic Variables reside here
+;-------------------------------------------------------------------------
+SECTION	"Tilemap Variables",BSS[_RS]
+
+; Is the camera currently moving, or are we near the edge of the map?
+isCameraMovingX:
+DS 		1
+isCameraMovingY:
+DS      1
+; The total height of the entire tile map.
+tilemapHeight:
+DS      2
+; The total width of the entire tile map.
+tilemapWidth:
+DS      2
+; A pointer to the current tile data.
+pTileData:
+DS      2
