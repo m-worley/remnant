@@ -1,10 +1,5 @@
-; Hello Sprite
-; originl version February 17, 2007
-; John Harrison
-; An extension of Hello World, based mostly from GALP
-
-;* 2008-May-01 --- V1.0a
-;*                 replaced reference of hello-sprite.inc with sprite.inc
+; remnant.asm
+; Main entry point into the game.
 
 INCLUDE "gbhw.inc" ; standard hardware definitions from devrs.com
 INCLUDE "ibmpc1.inc" ; ASCII character set from devrs.com
