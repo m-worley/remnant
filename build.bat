@@ -18,23 +18,23 @@ set CHECKSUM_FIXER=%~dp0tools\RGBASM\rgbfix95.exe
 ::Assemble source files.
 echo Assembling...
 cd %SRC_DIR%
-cmd /C %ASSEMBLER% -i%PROJECT_INCLUDES% -i%EXTERNAL_INCLUDES% -ogbtile.obj gbtile.asm
+cmd /C %ASSEMBLER% -i%PROJECT_INCLUDES% -i%EXTERNAL_INCLUDES% -ogbscroll.obj gbscroll.asm
 if errorlevel 1 goto end
 
 ::Link.
 echo Linking...
-cmd /C ..\makelnk gbtile > gbtile.lnk
-cmd /C %LINKER% -mgbtile.map gbtile.lnk
+cmd /C ..\makelnk gbscroll > gbscroll.lnk
+cmd /C %LINKER% -mgbscroll.map gbscroll.lnk
 if errorlevel 1 goto end
 
 ::Fix checksums.
 echo Fixing...
-cmd /C %CHECKSUM_FIXER% -v gbtile.gb
+cmd /C %CHECKSUM_FIXER% -v gbscroll.gb
 
 ::Copy to binary directory.
 echo Copying files to build directory...
-copy /V "gbtile.gb" %BUILD_DIR%
-copy /V "gbtile.map" %BUILD_DIR%
+copy /V "gbscroll.gb" %BUILD_DIR%
+copy /V "gbscroll.map" %BUILD_DIR%
 
 :end
 echo Cleaning up...

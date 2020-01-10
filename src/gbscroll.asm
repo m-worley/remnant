@@ -1,4 +1,4 @@
-; gbtile.asm
+; gbscroll.asm
 ; Main entry point into the demo.
 
 INCLUDE "gbhw.inc" ; standard hardware definitions from devrs.com
