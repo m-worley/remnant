@@ -1,5 +1,5 @@
-; remnant.asm
-; Main entry point into the game.
+; gbtile.asm
+; Main entry point into the demo.
 
 INCLUDE "gbhw.inc" ; standard hardware definitions from devrs.com
 INCLUDE "ibmpc1.inc" ; ASCII character set from devrs.com

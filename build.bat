@@ -18,23 +18,23 @@ set CHECKSUM_FIXER=%~dp0tools\RGBASM\rgbfix95.exe
 ::Assemble source files.
 echo Assembling...
 cd %SRC_DIR%
-cmd /C %ASSEMBLER% -i%PROJECT_INCLUDES% -i%EXTERNAL_INCLUDES% -oremnant.obj remnant.asm
+cmd /C %ASSEMBLER% -i%PROJECT_INCLUDES% -i%EXTERNAL_INCLUDES% -ogbtile.obj gbtile.asm
 if errorlevel 1 goto end
 
 ::Link.
 echo Linking...
-cmd /C ..\makelnk remnant > remnant.lnk
-cmd /C %LINKER% -mremnant.map remnant.lnk
+cmd /C ..\makelnk gbtile > gbtile.lnk
+cmd /C %LINKER% -mgbtile.map gbtile.lnk
 if errorlevel 1 goto end
 
 ::Fix checksums.
 echo Fixing...
-cmd /C %CHECKSUM_FIXER% -v remnant.gb
+cmd /C %CHECKSUM_FIXER% -v gbtile.gb
 
 ::Copy to binary directory.
 echo Copying files to build directory...
-copy /V "remnant.gb" %BUILD_DIR%
-copy /V "remnant.map" %BUILD_DIR%
+copy /V "gbtile.gb" %BUILD_DIR%
+copy /V "gbtile.map" %BUILD_DIR%
 
 :end
 echo Cleaning up...
