@@ -35,7 +35,7 @@ The following prerequisites are required to build and run the project:
 
 1. Clone the repo with Git.
 ```sh
-git clone https://github.com/mwhirls/jimakun.git
+git clone https://github.com/mwhirls/gbscroll.git
 ```
 2. Run the build step.  This will assemble the code and generate a build located in the `bin/` directory.
 ```sh
