@@ -37,8 +37,9 @@ The following prerequisites are required to build and run the project:
 ```sh
 git clone https://github.com/mwhirls/gbscroll.git
 ```
-2. Run the build step.  This will assemble the code and generate a build located in the `bin/` directory.
+2. Run the build step in the project directory.  This will assemble the code and generate a build located in the `bin/` directory.
 ```sh
+cd gbscroll
 build.bat
 ```
 
@@ -71,7 +72,7 @@ GBScroll has the following third-party dependencies, listed in the `external` de
 ```
 gbhw.inc
 ibmpc1.inc
-ibmpc1.inc
+memory.asm
 ```
 
 I heavily relied on the following reference for getting started in Game Boy development:
